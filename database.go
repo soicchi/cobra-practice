@@ -4,9 +4,11 @@ import (
 	"github.com/go-gormigrate/gormigrate/v2"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 type DBConfig struct {
+	Host string
 	User     string
 	Password string
 	DBName   string
@@ -14,8 +16,9 @@ type DBConfig struct {
 	SSLMode  string
 }
 
-func NewDBConfig(user, password, dbName, port, sslMode string) *DBConfig {
+func NewDBConfig(dbHost, user, password, dbName, port, sslMode string) *DBConfig {
 	return &DBConfig{
+		Host: dbHost,
 		User:     user,
 		Password: password,
 		DBName:   dbName,
@@ -26,7 +29,9 @@ func NewDBConfig(user, password, dbName, port, sslMode string) *DBConfig {
 
 func (dc DBConfig) Connect() (*gorm.DB, error) {
 	dsn := dc.createDSN()
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Info),
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -35,11 +40,14 @@ func (dc DBConfig) Connect() (*gorm.DB, error) {
 }
 
 func (dc DBConfig) createDSN() string {
-	return "host=localhost user=" + dc.User + " password=" + dc.Password + " dbname=" + dc.DBName + " port=" + dc.Port + " sslmode=" + dc.SSLMode
+	return "host=" + dc.Host + " user=" + dc.User + " password=" + dc.Password + " dbname=" + dc.DBName + " port=" + dc.Port + " sslmode=" + dc.SSLMode
 }
 
-func (dc DBConfig) Migrate(db *gorm.DB) error {
-	m := gormigrate.New(db, gormigrate.DefaultOptions, []*gormigrate.Migration{})
+func Migrate(db *gorm.DB) error {
+	m := gormigrate.New(db, gormigrate.DefaultOptions, []*gormigrate.Migration{
+		// 20240429_add_user_table.go
+		AddUserTable(),
+	})
 	if err := m.Migrate(); err != nil {
 		return err
 	}
